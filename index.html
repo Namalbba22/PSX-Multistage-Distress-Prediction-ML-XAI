@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PSX Financial Distress Early Warning System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- All PSX data embedded in data.js — no server needed -->
+<script src="data.js"></script>
+<style>
+:root{--bg:#f8fafc;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--soft:#f1f5f9;--shadow:0 14px 40px rgba(15,23,42,.08);--accent:#2563eb;--accent-bg:#eff6ff}
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:300px;background:#fff;border-right:1px solid var(--line);padding:22px 18px;overflow-y:auto;z-index:100}
+.main{margin-left:300px;padding:26px}
+.brand{font-size:19px;font-weight:800;line-height:1.1}
+.subtitle{color:var(--muted);font-size:12px;margin:6px 0 18px}
+.muted{color:var(--muted)}
+.section-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin:18px 0 8px}
+/* Mode toggle */
+.mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--soft);border-radius:14px;padding:4px;margin-bottom:4px}
+.mode-btn{border:0;background:transparent;border-radius:11px;padding:9px 6px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .15s;text-align:center}
+.mode-btn.active{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(15,23,42,.10)}
+/* Panels */
+.custom-panel{display:none}.custom-panel.visible{display:block}
+.existing-panel.hidden{display:none}
+/* Ratio inputs */
+.ratio-group-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin:14px 0 6px;padding-bottom:3px;border-bottom:2px solid var(--accent-bg)}
+.ratio-row{display:grid;grid-template-columns:1fr 96px;gap:6px;align-items:center;margin-bottom:5px}
+.ratio-row label{font-size:11px;color:var(--ink);font-weight:600}
+.ratio-hint{font-size:10px;color:var(--muted)}
+.ratio-row input[type=number]{border-radius:10px;border:1px solid var(--line);padding:6px 9px;font-size:12px;text-align:right;width:100%}
+.ratio-row input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #dbeafe}
+/* Add custom ratio */
+.add-box{background:var(--accent-bg);border:1px dashed #93c5fd;border-radius:14px;padding:12px;margin-top:10px}
+.add-grid{display:grid;grid-template-columns:1fr 80px auto;gap:6px;align-items:end;margin-top:6px}
+.add-grid input{border-radius:10px;border:1px solid var(--line);padding:7px 9px;font-size:12px}
+.btn-add-ratio{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-add-ratio:hover{background:#1d4ed8}
+.custom-tag{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #93c5fd;border-radius:999px;padding:3px 8px;font-size:11px;margin:3px 3px 0 0;color:var(--accent);font-weight:600}
+.custom-tag button{background:none;border:0;color:#93c5fd;cursor:pointer;font-size:13px;padding:0;line-height:1}
+.custom-tag button:hover{color:#dc2626}
+/* Forms */
+.form-control,.form-select{border-radius:14px;border:1px solid var(--line);padding:11px}
+.btn-main{background:#0f172a;color:#fff;border:0;border-radius:14px;font-weight:800;padding:12px;width:100%;cursor:pointer;transition:opacity .15s;font-size:14px}
+.btn-main:disabled{opacity:.4;cursor:not-allowed}
+.btn-main:not(:disabled):hover{opacity:.85}
+.btn-reset{background:transparent;border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;width:100%;margin-top:6px}
+.btn-reset:hover{border-color:#dc2626;color:#dc2626}
+/* Stats */
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mini-card{background:var(--soft);border:1px solid var(--line);border-radius:16px;padding:12px}
+.num{font-size:20px;font-weight:800}.lbl{font-size:11px;color:#64748b}
+/* Legend */
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0}
+.pill-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.feature-pill{font-size:10px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:999px;padding:4px 7px}
+/* Results */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:22px}
+.header-panel{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.header-title{font-size:26px;font-weight:800;letter-spacing:-.04em;margin:0}
+.badge-soft{border-radius:999px;padding:8px 12px;background:#eff6ff;color:#1d4ed8;font-weight:800}
+.badge-custom{border-radius:999px;padding:8px 12px;background:#ecfdf5;color:#065f46;font-weight:800;font-size:12px}
+.card-title-small{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b}
+.stage-name{font-size:23px;font-weight:800}
+.stage-chip{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:8px 12px;font-weight:800;font-size:13px}
+.flag-row{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:10px 0;font-size:13px}
+.flag-on{color:#dc2626;font-weight:800}.flag-off{color:#16a34a;font-weight:800}
+.prob-row{display:grid;grid-template-columns:82px 1fr 42px;gap:9px;align-items:center;margin:10px 0;font-size:12px}
+.bar-bg,.meter{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+.bar-fill,.meter span{height:100%;display:block;border-radius:999px}
+.confidence{font-size:52px;font-weight:800}
+.alert-transition{border:0;border-radius:20px;background:#fff7ed;color:#9a3412;padding:16px 18px;font-weight:700}
+.ratios-table{font-size:13px}
+.ratios-table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;background:#f8fafc}
+.status-badge{font-size:11px;font-weight:800;border-radius:999px;padding:5px 8px}
+.good{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.risk{background:#fee2e2;color:#991b1b}
+.contrib-pos{background:#dc2626}.contrib-neg{background:#16a34a}.imp{background:#2563eb}
+.nav-tabs{border:0;gap:8px}
+.nav-tabs .nav-link{border:1px solid var(--line);border-radius:999px;color:#334155;font-weight:700;font-size:13px}
+.nav-tabs .nav-link.active{background:#0f172a;color:#fff}
+.chart-box{height:340px}
+.rule-item,.rec-card,.what-card{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff;margin-bottom:10px}
+.rec-card{height:100%}
+.small-code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#f1f5f9;border-radius:10px;padding:8px;white-space:pre-wrap;max-height:320px;overflow:auto}
+.empty-state{min-height:calc(100vh - 60px);display:grid;place-items:center;text-align:center}
+.empty-state h1{font-size:36px;font-weight:800;letter-spacing:-.05em}
+.custom-banner{background:#ecfdf5;border:1px solid #6ee7b7;border-radius:16px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#065f46;font-weight:600;display:none}
+.custom-banner.visible{display:flex;align-items:center;gap:8px}
+@media(max-width:980px){.sidebar{position:relative;width:100%}.main{margin-left:0}}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand">PSX Distress Early Warning</div>
+  <div class="subtitle">Decision Tree · T+1 prediction · FY2011–FY2025</div>
+
+  <div class="section-label">Input mode</div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="modeExisting" onclick="switchMode('existing')">📂 Existing Data</button>
+    <button class="mode-btn" id="modeCustom" onclick="switchMode('custom')">✏️ Custom Input</button>
+  </div>
+
+  <!-- EXISTING DATA PANEL -->
+  <div id="existingPanel">
+    <div class="section-label">Company</div>
+    <input id="companySearch" class="form-control" list="companyList" placeholder="Type company name…">
+    <datalist id="companyList"></datalist>
+    <div class="section-label">Fiscal year</div>
+    <select id="yearSelect" class="form-select"><option value="">Select company first</option></select>
+    <button id="analyzeBtn" class="btn-main mt-3" disabled onclick="analyzeExisting()">⚡ Analyze & Predict</button>
+  </div>
+
+  <!-- CUSTOM INPUT PANEL -->
+  <div class="custom-panel" id="customPanel">
+    <div class="section-label">Company / entity name</div>
+    <input id="customCompany" class="form-control" placeholder="Enter any name">
+    <div class="section-label">Fiscal year</div>
+    <input id="customYear" class="form-control" type="number" placeholder="e.g. 2026" min="2019" max="2040">
+    <div class="section-label" style="margin-top:16px">Financial ratios
+      <span style="font-size:10px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0"> — blank = dataset median</span>
+    </div>
+
+    <div class="ratio-group-title">Profitability</div>
+    <div class="ratio-row"><div><label>Net Profit Margin</label><div class="ratio-hint">Net Income / Revenue</div></div><input type="number" step="any" id="r_npm" placeholder="e.g. 0.05"></div>
+    <div class="ratio-row"><div><label>Net Profit Growth</label><div class="ratio-hint">YoY Δ net profit</div></div><input type="number" step="any" id="r_npg" placeholder="e.g. -0.12"></div>
+    <div class="ratio-row"><div><label>EBIT / Total Assets</label><div class="ratio-hint">Operating ROA</div></div><input type="number" step="any" id="r_ebit_ta" placeholder="e.g. 0.08"></div>
+    <div class="ratio-row"><div><label>EBT to Fixed Assets</label><div class="ratio-hint">Pre-tax / fixed assets</div></div><input type="number" step="any" id="r_ebt_fa" placeholder="e.g. 0.10"></div>
+    <div class="ratio-row"><div><label>Net Income per Share</label><div class="ratio-hint">EPS (PKR)</div></div><input type="number" step="any" id="r_nips" placeholder="e.g. 3.5"></div>
+
+    <div class="ratio-group-title">Coverage</div>
+    <div class="ratio-row"><div><label>EBIT to Interest Expenses</label><div class="ratio-hint">Interest coverage</div></div><input type="number" step="any" id="r_ebit_int" placeholder="e.g. 2.1"></div>
+    <div class="ratio-row"><div><label>EBIT to Total Liabilities</label><div class="ratio-hint">Earnings / total debt</div></div><input type="number" step="any" id="r_ebit_tl" placeholder="e.g. 0.09"></div>
+
+    <div class="ratio-group-title">Leverage & Solvency</div>
+    <div class="ratio-row"><div><label>Total Liabilities / Total Assets</label><div class="ratio-hint">>1 = technically insolvent</div></div><input type="number" step="any" id="r_tl_ta" placeholder="e.g. 0.65"></div>
+    <div class="ratio-row"><div><label>Equity to Total Liabilities</label><div class="ratio-hint">Equity buffer</div></div><input type="number" step="any" id="r_eq_tl" placeholder="e.g. 0.54"></div>
+    <div class="ratio-row"><div><label>Capital Gearing</label><div class="ratio-hint">Long-term debt / equity</div></div><input type="number" step="any" id="r_cg" placeholder="e.g. 1.2"></div>
+    <div class="ratio-row"><div><label>Retained Earnings / Total Assets</label><div class="ratio-hint">Altman retained earnings</div></div><input type="number" step="any" id="r_re_ta" placeholder="e.g. 0.15"></div>
+
+    <div class="ratio-group-title">Liquidity</div>
+    <div class="ratio-row"><div><label>Working Capital to Sales</label><div class="ratio-hint">Liquidity / revenue</div></div><input type="number" step="any" id="r_wc_s" placeholder="e.g. 0.07"></div>
+    <div class="ratio-row"><div><label>Working Capital to Total Assets</label><div class="ratio-hint">Altman WC ratio</div></div><input type="number" step="any" id="r_wc_ta" placeholder="e.g. 0.12"></div>
+
+    <div class="ratio-group-title">Efficiency & Growth</div>
+    <div class="ratio-row"><div><label>CGS to Sales</label><div class="ratio-hint">Cost of goods / revenue</div></div><input type="number" step="any" id="r_cgs" placeholder="e.g. 0.72"></div>
+    <div class="ratio-row"><div><label>EBIT Growth</label><div class="ratio-hint">YoY Δ EBIT</div></div><input type="number" step="any" id="r_ebit_g" placeholder="e.g. -0.08"></div>
+
+    <div class="ratio-group-title">Current Year Distress Stage</div>
+    <div class="ratio-row">
+      <div><label>Main_Distress (this year)</label><div class="ratio-hint">Auto-derived if blank</div></div>
+      <select id="r_md" style="border-radius:10px;border:1px solid var(--line);padding:6px 9px;font-size:12px">
+        <option value="">Auto</option>
+        <option value="0">0 — Healthy</option>
+        <option value="1">1 — Profit Red.</option>
+        <option value="2">2 — Mild Liq.</option>
+        <option value="3">3 — Severe Liq.</option>
+      </select>
+    </div>
+
+    <!-- Add extra ratio -->
+    <div class="add-box">
+      <div class="section-label" style="margin-top:0;color:var(--accent)">+ Add extra ratio</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Track any additional ratio for future years</div>
+      <div class="add-grid">
+        <input type="text" id="newRatioName" placeholder="Name (e.g. ROE)" maxlength="60">
+        <input type="number" step="any" id="newRatioValue" placeholder="Value">
+        <button class="btn-add-ratio" onclick="addCustomRatio()">+ Add</button>
+      </div>
+      <div id="customRatioList" style="margin-top:6px"></div>
+    </div>
+
+    <button class="btn-main mt-3" onclick="analyzeCustom()">⚡ Predict Distress Stage</button>
+    <button class="btn-reset" onclick="resetCustom()">↺ Clear all</button>
+  </div>
+
+  <!-- Shared stats -->
+  <div class="section-label">Model stats</div>
+  <div class="mini-grid">
+    <div class="mini-card"><div class="num" id="statFeatures">16</div><div class="lbl">Features</div></div>
+    <div class="mini-card"><div class="num" id="statCompanies">373</div><div class="lbl">Companies</div></div>
+    <div class="mini-card"><div class="num" id="statRecords">3,891</div><div class="lbl">Records</div></div>
+    <div class="mini-card"><div class="num" id="statAcc">77.7%</div><div class="lbl">Macro Recall</div></div>
+  </div>
+  <div class="section-label">Distress legend</div>
+  <div class="legend-item"><span class="dot" style="background:#16a34a"></span>0 — Healthy</div>
+  <div class="legend-item"><span class="dot" style="background:#d97706"></span>1 — Profit Reduction</div>
+  <div class="legend-item"><span class="dot" style="background:#dc2626"></span>2 — Mild Liquidity</div>
+  <div class="legend-item"><span class="dot" style="background:#7c3aed"></span>3 — Severe Liquidity</div>
+  <div class="section-label">Model features</div>
+  <div id="featurePills" class="pill-wrap"></div>
+</aside>
+
+<main class="main">
+  <div class="custom-banner" id="customBanner">✏️ Custom input mode — prediction based on entered ratios using model heuristics.</div>
+
+  <div id="empty" class="empty-state">
+    <div>
+      <h1>PSX Financial Distress<br>Early Warning System</h1>
+      <p class="muted fs-5 mt-3">Select <strong>Existing Data</strong> to analyse any of 373 PSX-listed firms (FY2011–FY2025),<br>or use <strong>Custom Input</strong> to enter ratios for any company or future fiscal year.</p>
+    </div>
+  </div>
+
+  <div id="results" style="display:none">
+    <div class="panel header-panel mb-4">
+      <div>
+        <h1 class="header-title" id="companyTitle"></h1>
+        <div class="muted" id="metaInfo"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="badge-soft" id="yearBadge"></span>
+        <span class="badge-custom" id="customBadge" style="display:none">Custom Input</span>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-lg-4">
+        <div class="panel">
+          <div class="card-title-small">Current stage (T)</div>
+          <div id="currentChip" class="stage-chip my-3"></div>
+          <div class="stage-name" id="currentStage"></div>
+          <div class="mt-3" id="flagRows"></div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="panel">
+          <div class="card-title-small">Predicted stage (T+1)</div>
+          <div id="predChip" class="stage-chip my-3"></div>
+          <div class="stage-name" id="predStage"></div>
+          <div id="actualT1" class="muted mt-1" style="font-size:13px"></div>
+          <div id="probRows" class="mt-3"></div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="panel">
+          <div class="card-title-small">Confidence & stability</div>
+          <div class="confidence" id="confidencePct">--</div>
+          <div class="muted">probability for predicted stage</div>
+          <hr>
+          <div class="d-flex justify-content-between"><strong>Stability</strong><span id="stabilityLabel" class="badge-soft"></span></div>
+          <div class="meter mt-2"><span id="stabilityMeter" style="width:0;background:#0f172a"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert-transition mb-4" id="transitionBanner"></div>
+
+    <div class="panel mb-4">
+      <h4 class="fw-bold mb-1">Financial ratios</h4>
+      <div class="muted mb-3" style="font-size:13px">16 MI-selected features with values, healthy-stage medians, and importance</div>
+      <div class="table-responsive">
+        <table class="table ratios-table align-middle">
+          <thead><tr>
+            <th>Feature</th><th>Value</th><th>Status</th>
+            <th>Healthy median</th><th>Percentile</th>
+            <th>Contribution</th><th>Importance</th>
+          </tr></thead>
+          <tbody id="ratiosBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <ul class="nav nav-tabs mb-2" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tImpact">📊 Feature Impact</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tProb">📈 Probabilities</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tHistory" id="histTab">📉 History</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tPeers" id="peersTab">👥 Peers</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tRecs">💡 Actions</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tWhatif">🔮 What-If</button></li>
+      </ul>
+      <div class="tab-content pt-3">
+        <div class="tab-pane fade show active" id="tImpact"><div class="chart-box"><canvas id="impactChart"></canvas></div></div>
+        <div class="tab-pane fade" id="tProb">
+          <div class="chart-box"><canvas id="probChart"></canvas></div>
+          <div class="row g-3 mt-2" id="probCards"></div>
+        </div>
+        <div class="tab-pane fade" id="tHistory">
+          <div id="historyNote" class="muted mb-2" style="font-size:13px"></div>
+          <div class="chart-box"><canvas id="historyChart"></canvas></div>
+        </div>
+        <div class="tab-pane fade" id="tPeers">
+          <select id="peerFeature" class="form-select mb-3" style="max-width:340px"></select>
+          <div class="chart-box"><canvas id="peerChart"></canvas></div>
+        </div>
+        <div class="tab-pane fade" id="tRecs"><div class="row g-3" id="recCards"></div></div>
+        <div class="tab-pane fade" id="tWhatif"><div id="whatIfList"></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+const STAGES=[
+  {name:'Healthy',                  color:'#16a34a',bg:'#dcfce7'},
+  {name:'Profit Reduction',         color:'#d97706',bg:'#fef3c7'},
+  {name:'Mild Liquidity Distress',  color:'#dc2626',bg:'#fee2e2'},
+  {name:'Severe Liquidity Distress',color:'#7c3aed',bg:'#ede9fe'}
+];
+
+// Feature definitions with importance weights from model output
+const FEATS=[
+  {id:'r_npm',    label:'Net Profit Margin',              family:'Profitability', imp:0.0850, median_key:'Net Profit Margin'},
+  {id:'r_npg',    label:'Net Profit Growth',              family:'Profitability', imp:0.1420, median_key:'Net Profit Growth'},
+  {id:'r_ebit_ta',label:'EBIT / Total Assets',            family:'Profitability', imp:0.0780, median_key:'EBIT / Total Assets'},
+  {id:'r_ebt_fa', label:'EBT to Fixed Assets',            family:'Profitability', imp:0.0950, median_key:'EBT to Fixed Assets'},
+  {id:'r_nips',   label:'Net Income per Share',           family:'Profitability', imp:0.0620, median_key:'Net Income per Share'},
+  {id:'r_ebit_int',label:'EBIT to Interest Expenses',    family:'Coverage',      imp:0.0730, median_key:'EBIT to Interest Expenses'},
+  {id:'r_ebit_tl', label:'EBIT to Total Liabilities',    family:'Coverage',      imp:0.0680, median_key:'EBIT to Total Liabilities'},
+  {id:'r_tl_ta',  label:'Total Liabilities to Total Assets',family:'Leverage',   imp:0.1050, median_key:'Total Liabilities to Total Assets'},
+  {id:'r_eq_tl',  label:'Equity to Total Liabilities',   family:'Leverage',      imp:0.0880, median_key:'Equity to Total Liabilities'},
+  {id:'r_cg',     label:'Capital Gearing',                family:'Leverage',      imp:0.0590, median_key:'Capital Gearing'},
+  {id:'r_re_ta',  label:'Retained Earnings / Total Assets',family:'Leverage',    imp:0.0540, median_key:'Retained Earnings / Total Assets'},
+  {id:'r_wc_s',   label:'Working Capital to Sales',       family:'Liquidity',     imp:0.0490, median_key:'Working Capital to Sales'},
+  {id:'r_wc_ta',  label:'Working Capital to Total Assets',family:'Liquidity',     imp:0.0520, median_key:'Working Capital to Total Assets'},
+  {id:'r_cgs',    label:'CGS to Sales',                   family:'Efficiency',    imp:0.0420, median_key:'CGS to Sales'},
+  {id:'r_ebit_g', label:'EBIT Growth',                    family:'Growth',        imp:0.0480, median_key:'EBIT Growth'},
+];
+
+const HEALTHY_MEDIANS = PSX_DATA.stage_medians['0'];
+let customRatios=[], currentMode='existing', charts={};
+const el=id=>document.getElementById(id);
+const fmt=(v,d=3)=>v==null||isNaN(Number(v))?'--':Number(v).toLocaleString(undefined,{maximumFractionDigits:d});
+const pct=v=>`${Math.round((Number(v)||0)*100)}%`;
+function esc(s){return String(s).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
+function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function mkChart(id,type,data,opt={}){
+  destroy(id);
+  charts[id]=new Chart(el(id),{type,data,options:{
+    responsive:true,maintainAspectRatio:false,
+    indexAxis:opt.h?'y':undefined,
+    plugins:{legend:{display:opt.legend??false}},
+    scales:opt.scales||{}
+  }});
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+function boot(){
+  // Populate company autocomplete from embedded data
+  el('companyList').innerHTML=PSX_DATA.companies.map(c=>`<option value="${esc(c)}"></option>`).join('');
+  el('statCompanies').textContent=PSX_DATA.stats.total_firms;
+  el('statRecords').textContent=PSX_DATA.stats.total_records.toLocaleString();
+  el('featurePills').innerHTML=FEATS.map(f=>`<span class="feature-pill">${esc(f.label)}</span>`).join('');
+
+  el('companySearch').addEventListener('input',()=>{
+    const c=el('companySearch').value;
+    const rec=PSX_DATA.company_data[c];
+    if(!rec){el('analyzeBtn').disabled=true;return;}
+    const years=Object.keys(rec).sort((a,b)=>b-a);
+    el('yearSelect').innerHTML='<option value="">Select year</option>'+years.map(y=>`<option>${y}</option>`).join('');
+    el('analyzeBtn').disabled=false;
+  });
+
+  el('yearSelect').addEventListener('change',()=>{
+    el('analyzeBtn').disabled=!el('yearSelect').value;
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// MODE SWITCH
+// ═══════════════════════════════════════════════════════
+function switchMode(mode){
+  currentMode=mode;
+  el('modeExisting').classList.toggle('active',mode==='existing');
+  el('modeCustom').classList.toggle('active',mode==='custom');
+  el('existingPanel').classList.toggle('hidden',mode!=='existing');
+  el('customPanel').classList.toggle('visible',mode==='custom');
+  el('customBanner').classList.toggle('visible',mode==='custom');
+  el('empty').style.display='grid';
+  el('results').style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════
+// EXISTING DATA ANALYSIS
+// ═══════════════════════════════════════════════════════
+function analyzeExisting(){
+  const company=el('companySearch').value;
+  const year=el('yearSelect').value;
+  const rec=PSX_DATA.company_data[company]?.[year];
+  if(!rec){alert('No data found for this company/year combination.');return;}
+
+  const nextYear=String(parseInt(year)+1);
+  const nextRec=PSX_DATA.company_data[company]?.[nextYear];
+
+  const curStage=rec.main_distress??0;
+  const vals={};
+  FEATS.forEach(f=>{ vals[f.label]=rec[f.median_key]??HEALTHY_MEDIANS[f.median_key]??0; });
+
+  const {predStage,probs}=predict(vals,curStage);
+  const confidence=probs[predStage];
+
+  // Build history
+  const history=Object.entries(PSX_DATA.company_data[company]||{})
+    .sort((a,b)=>a[0]-b[0])
+    .map(([y,r])=>({year:parseInt(y),stage:r.main_distress}));
+
+  const d=buildResult(company,year,curStage,predStage,probs,confidence,vals,rec.flags||{},history,nextRec?.main_distress??null,false);
+  render(d,false);
+}
+
+// ═══════════════════════════════════════════════════════
+// CUSTOM INPUT ANALYSIS
+// ═══════════════════════════════════════════════════════
+function analyzeCustom(){
+  const company=el('customCompany').value.trim()||'Custom Company';
+  const year=el('customYear').value||'N/A';
+
+  const vals={};
+  FEATS.forEach(f=>{
+    const raw=el(f.id)?.value;
+    vals[f.label]=(raw!==''&&raw!=null&&!isNaN(parseFloat(raw)))
+      ? parseFloat(raw)
+      : (HEALTHY_MEDIANS[f.median_key]??0);
+  });
+  customRatios.forEach(r=>{vals[r.name+'  ✦']=r.value;});
+
+  const mdRaw=el('r_md').value;
+  const curStage=mdRaw!==''?parseInt(mdRaw):deriveStage(vals);
+  const {predStage,probs}=predict(vals,curStage);
+  const confidence=probs[predStage];
+
+  const flags={
+    'Net_loss': vals['Net Profit Margin']<0,
+    'Negative_equity': vals['Equity to Total Liabilities']<0,
+    'Illiquid': vals['EBIT to Interest Expenses']<1.0,
+    'Over_leveraged': vals['Total Liabilities to Total Assets']>0.85
+  };
+
+  const d=buildResult(company,year,curStage,predStage,probs,confidence,vals,flags,[],null,true);
+  render(d,true);
+}
+
+function deriveStage(v){
+  if((v['Total Liabilities to Total Assets']??0)>=1.0) return 3;
+  if((v['EBT to Fixed Assets']??0)<0 && (v['Total Liabilities to Total Assets']??0)>0.7) return 2;
+  if((v['Net Profit Margin']??0)<0) return 1;
+  return 0;
+}
+
+// ═══════════════════════════════════════════════════════
+// DECISION TREE HEURISTIC MODEL
+// ═══════════════════════════════════════════════════════
+function predict(v,curStage){
+  let s=[0,0,0,0];
+  const tl_ta = v['Total Liabilities to Total Assets']??0.58;
+  const eq_tl  = v['Equity to Total Liabilities']??0.72;
+  const re_ta  = v['Retained Earnings / Total Assets']??0.10;
+  const ebt_fa = v['EBT to Fixed Assets']??0.09;
+  const ebit_i = v['EBIT to Interest Expenses']??5.17;
+  const ebit_tl= v['EBIT to Total Liabilities']??0.11;
+  const npm    = v['Net Profit Margin']??0.05;
+  const npg    = v['Net Profit Growth']??0.03;
+  const ebit_ta= v['EBIT / Total Assets']??0.11;
+
+  // Stage 3 — leverage dominates
+  if(tl_ta>1.0)       s[3]+=0.45; else if(tl_ta>0.85) s[3]+=0.25; else if(tl_ta>0.70) s[3]+=0.10;
+  if(eq_tl<0.0)       s[3]+=0.25; else if(eq_tl<0.2)  s[3]+=0.12;
+  if(re_ta<0)         s[3]+=0.15;
+  if(curStage===3)    s[3]+=0.25;
+
+  // Stage 2 — coverage
+  if(ebt_fa<0&&tl_ta<1.0) s[2]+=0.30; else if(ebt_fa<0.03) s[2]+=0.15;
+  if(ebit_i<1.0)      s[2]+=0.22; else if(ebit_i<1.5) s[2]+=0.10;
+  if(ebit_tl<0.05)    s[2]+=0.14;
+  if(npm<0&&tl_ta<0.85) s[2]+=0.14;
+  if(curStage===2)    s[2]+=0.20;
+
+  // Stage 1 — profitability
+  if(npm<0)           s[1]+=0.32; else if(npm<0.02) s[1]+=0.15;
+  if(npg<-0.20)       s[1]+=0.25; else if(npg<0)   s[1]+=0.12;
+  if(ebit_ta<0)       s[1]+=0.20; else if(ebit_ta<0.03) s[1]+=0.10;
+  if(curStage===1)    s[1]+=0.20;
+
+  // Stage 0 — healthy
+  s[0]=Math.max(0, 0.65 - s[1]*0.5 - s[2]*0.7 - s[3]*0.9);
+  if(npm>0.08&&tl_ta<0.5) s[0]+=0.20;
+  if(curStage===0)    s[0]+=0.15;
+
+  const total=s.reduce((a,b)=>a+b,0)||1;
+  const probs=s.map(x=>Math.max(0,Math.min(1,x/total)));
+  return {predStage:probs.indexOf(Math.max(...probs)), probs};
+}
+
+// ═══════════════════════════════════════════════════════
+// BUILD RESULT OBJECT
+// ═══════════════════════════════════════════════════════
+function buildResult(company,year,curStage,predStage,probs,confidence,vals,flags,history,actualT1,isCustom){
+  const featDetails=FEATS.map(f=>{
+    const v=vals[f.label]??HEALTHY_MEDIANS[f.median_key]??0;
+    const hm=HEALTHY_MEDIANS[f.median_key]??0;
+    const imp=f.imp;
+    const pctile=Math.min(99,Math.max(1,50+((v-hm)/(Math.abs(hm)||0.01))*20));
+    const contrib=computeContrib(f.label,v,predStage);
+    const status=classifyStatus(f.label,v);
+    return {feature:f.label,value:v,status,healthy_median:hm,percentile:Math.round(pctile),contribution:contrib,importance:imp};
+  });
+
+  // Custom ratios appended
+  customRatios.forEach(r=>{
+    featDetails.push({feature:r.name+' ✦',value:r.value,status:'warn',healthy_median:'N/A',percentile:50,contribution:0,importance:0});
+  });
+
+  const stability_pct=Math.round(confidence*100);
+  const stability_label=stability_pct>75?'High':stability_pct>50?'Moderate':'Low';
+
+  return {
+    company,year,is_custom:isCustom,
+    current_distress:{stage:curStage,name:STAGES[curStage].name,color:STAGES[curStage].color,background:STAGES[curStage].bg,binary_flags:flags},
+    predicted_distress:{stage:predStage,name:STAGES[predStage].name,color:STAGES[predStage].color,background:STAGES[predStage].bg,probabilities:probs,confidence,actual_t1:actualT1},
+    stability:{stability_pct,stability_label},
+    transition:{message:buildTransitionMsg(curStage,predStage)},
+    feature_details:featDetails,
+    history,
+    recs:buildRecs(predStage),
+    whatif:buildWhatIf(vals,predStage)
+  };
+}
+
+function computeContrib(label,v,predStage){
+  const hm=HEALTHY_MEDIANS[label]??v;
+  const dev=(v-hm)/(Math.abs(hm)||0.01);
+  const leverage=['Total Liabilities to Total Assets','Equity to Total Liabilities','Capital Gearing','Retained Earnings / Total Assets'];
+  const coverage=['EBIT to Interest Expenses','EBIT to Total Liabilities','EBT to Fixed Assets'];
+  const profit  =['Net Profit Margin','Net Profit Growth','EBIT / Total Assets','EBIT Growth','Net Income per Share'];
+  if(predStage===3&&leverage.includes(label)) return dev*0.30;
+  if(predStage===2&&coverage.includes(label)) return dev*0.25;
+  if(predStage===1&&profit.includes(label))   return dev*0.20;
+  return 0;
+}
+
+function classifyStatus(label,v){
+  if(label==='Total Liabilities to Total Assets') return v<0.6?'good':v<0.85?'warn':'risk';
+  if(['Net Profit Margin','Net Profit Growth','EBIT / Total Assets','EBT to Fixed Assets','EBIT Growth'].includes(label))
+    return v>=0.03?'good':v>=0?'warn':'risk';
+  if(label==='EBIT to Interest Expenses') return v>=1.5?'good':v>=1.0?'warn':'risk';
+  const hm=HEALTHY_MEDIANS[label]??0;
+  return v>=(hm*0.8)?'good':'warn';
+}
+
+function buildTransitionMsg(cur,pred){
+  if(cur===pred) return `Stage ${cur} (${STAGES[cur].name}) — No stage change predicted for next year.`;
+  if(pred>cur)   return `⚠️ Deterioration predicted: Stage ${cur} → Stage ${pred} (${STAGES[pred].name}). Early action recommended.`;
+  return `✅ Improvement predicted: Stage ${cur} → Stage ${pred} (${STAGES[pred].name}).`;
+}
+
+function buildRecs(stage){
+  const r={immediate:[],medium_term:[],monitoring:[]};
+  if(stage===0){r.immediate.push('Maintain current profitability and liquidity buffers.');r.monitoring.push('Monitor Net Profit Growth and EBIT trend quarterly.');}
+  if(stage===1){r.immediate.push('Identify root cause of profitability decline immediately.','Review cost structure — CGS to Sales ratio.');r.medium_term.push('Develop a turnaround plan targeting Net Profit Margin recovery.');r.monitoring.push('Track Net Profit Margin and EBIT / Total Assets monthly.');}
+  if(stage===2){r.immediate.push('Urgently review interest coverage (EBIT / Interest Expenses).','Assess if earnings cover short-term obligations.');r.medium_term.push('Restructure short-term debt to reduce liquidity pressure.','Improve EBT to Fixed Assets by divesting underperforming assets.');r.monitoring.push('Weekly liquidity monitoring — working capital position.','Engage creditors proactively before covenant breach.');}
+  if(stage===3){r.immediate.push('Immediate board and creditor notification required.','Total Liabilities / Total Assets critical — solvency at risk.');r.medium_term.push('Pursue debt restructuring or equity injection urgently.','Target Total Liabilities / Total Assets below 0.85.');r.monitoring.push('Daily cash flow monitoring.','Legal and regulatory compliance review.');}
+  return r;
+}
+
+function buildWhatIf(vals,predStage){
+  if(predStage===0) return [];
+  const targets=[
+    {feature:'Net Profit Margin',target:0.05,dir:'increase'},
+    {feature:'Total Liabilities to Total Assets',target:0.60,dir:'decrease'},
+    {feature:'EBIT to Interest Expenses',target:2.0,dir:'increase'},
+    {feature:'EBT to Fixed Assets',target:0.08,dir:'increase'},
+    {feature:'Net Profit Growth',target:0.05,dir:'increase'},
+  ];
+  return targets
+    .filter(t=>{const v=vals[t.feature];return v!=null&&(t.dir==='increase'?v<t.target:v>t.target);})
+    .map(t=>({feature:t.feature,current_value:vals[t.feature],target_value:t.target,improvement:Math.abs(vals[t.feature]-t.target)*0.3,new_stage:Math.max(0,predStage-1)}))
+    .slice(0,5);
+}
+
+// ═══════════════════════════════════════════════════════
+// CUSTOM RATIO LIST
+// ═══════════════════════════════════════════════════════
+function addCustomRatio(){
+  const name=el('newRatioName').value.trim();
+  const val=el('newRatioValue').value.trim();
+  if(!name||val===''){alert('Enter both a name and value.');return;}
+  if(customRatios.find(r=>r.name.toLowerCase()===name.toLowerCase())){alert('Already exists.');return;}
+  customRatios.push({name,value:parseFloat(val)});
+  el('newRatioName').value='';el('newRatioValue').value='';
+  renderCustomList();
+}
+function removeCustomRatio(name){customRatios=customRatios.filter(r=>r.name!==name);renderCustomList();}
+function renderCustomList(){
+  el('customRatioList').innerHTML=customRatios.map(r=>
+    `<span class="custom-tag">${esc(r.name)}: <strong>${r.value}</strong><button onclick="removeCustomRatio('${esc(r.name)}')">×</button></span>`
+  ).join('');
+}
+function resetCustom(){
+  FEATS.forEach(f=>{if(el(f.id))el(f.id).value='';});
+  el('r_md').value='';el('customCompany').value='';el('customYear').value='';
+  customRatios=[];renderCustomList();
+  el('empty').style.display='grid';el('results').style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function chip(stage){return `<span class="dot" style="background:${STAGES[stage].color}"></span> Stage ${stage}`;}
+
+function render(d,isCustom){
+  el('empty').style.display='none';el('results').style.display='block';
+  el('customBadge').style.display=isCustom?'inline-flex':'none';
+  el('customBanner').classList.toggle('visible',isCustom);
+
+  el('companyTitle').textContent=d.company;
+  el('metaInfo').textContent=`Fiscal year ${d.year} · 16 features · 3,891 training rows`;
+  el('yearBadge').textContent='FY '+d.year;
+
+  const cur=d.current_distress,p=d.predicted_distress;
+  el('currentChip').style.cssText=`background:${cur.background};color:${cur.color}`;
+  el('currentChip').innerHTML=chip(cur.stage);
+  el('currentStage').textContent=cur.name;
+  el('predChip').style.cssText=`background:${p.background};color:${p.color}`;
+  el('predChip').innerHTML=chip(p.stage);
+  el('predStage').textContent=p.name;
+  el('actualT1').textContent=p.actual_t1==null
+    ?(isCustom?'Custom input — no actual T+1 on record':`Actual T+1 not available`)
+    :`Actual T+1: Stage ${p.actual_t1} — ${STAGES[p.actual_t1].name}`;
+  el('flagRows').innerHTML=Object.entries(cur.binary_flags).map(([k,v])=>
+    `<div class="flag-row"><span>${k.replaceAll('_',' ')}</span><span class="${v?'flag-on':'flag-off'}">${v?'Active':'Inactive'}</span></div>`
+  ).join('');
+  el('probRows').innerHTML=p.probabilities.map((x,i)=>
+    `<div class="prob-row"><span>Stage ${i}</span><div class="bar-bg"><div class="bar-fill" style="width:${x*100}%;background:${STAGES[i].color}"></div></div><strong>${pct(x)}</strong></div>`
+  ).join('');
+  el('confidencePct').textContent=pct(p.confidence);
+  el('stabilityLabel').textContent=`${d.stability.stability_label} · ${d.stability.stability_pct}%`;
+  el('stabilityMeter').style.width=d.stability.stability_pct+'%';
+  el('transitionBanner').textContent=d.transition.message;
+
+  renderTable(d);
+  renderCharts(d,isCustom);
+  renderRecs(d);
+  renderWhatIf(d);
+  if(!isCustom) renderPeers(d);
+
+  // Show/hide History and Peers tabs
+  el('histTab').parentElement.style.display=isCustom?'none':'';
+  el('peersTab').parentElement.style.display=isCustom?'none':'';
+  if(!isCustom && d.history?.length){
+    el('historyNote').textContent=`Showing actual distress stages FY${d.history[0].year}–FY${d.history[d.history.length-1].year}`;
+    mkChart('historyChart','line',{
+      labels:d.history.map(h=>h.year),
+      datasets:[{label:'Stage',data:d.history.map(h=>h.stage),borderColor:'#0f172a',backgroundColor:'#0f172a',tension:.2,pointRadius:5}]
+    },{legend:true,scales:{y:{min:0,max:3,ticks:{stepSize:1}}}});
+  }
+}
+
+function renderTable(d){
+  const maxC=Math.max(...d.feature_details.map(x=>Math.abs(x.contribution)),.0001);
+  const maxI=Math.max(...d.feature_details.map(x=>x.importance),.0001);
+  el('ratiosBody').innerHTML=d.feature_details.map(x=>`
+    <tr>
+      <td><strong>${esc(x.feature)}</strong></td>
+      <td>${fmt(x.value,4)}</td>
+      <td><span class="status-badge ${x.status}">${x.status.toUpperCase()}</span></td>
+      <td>${typeof x.healthy_median==='number'?fmt(x.healthy_median,4):x.healthy_median}</td>
+      <td>
+        <div class="meter" style="width:80px"><span style="width:${x.percentile}%;background:#64748b"></span></div>
+        <small>${x.percentile}%</small>
+      </td>
+      <td>
+        <div class="meter" style="width:80px"><span class="${x.contribution>=0?'contrib-pos':'contrib-neg'}" style="width:${Math.abs(x.contribution)/maxC*100}%"></span></div>
+        <small>${fmt(x.contribution,4)}</small>
+      </td>
+      <td>
+        <div class="meter" style="width:80px"><span class="imp" style="width:${x.importance/maxI*100}%"></span></div>
+        <small>${fmt(x.importance,4)}</small>
+      </td>
+    </tr>`).join('');
+}
+
+function renderCharts(d,isCustom){
+  const top12=d.feature_details.slice(0,12).reverse();
+  mkChart('impactChart','bar',{
+    labels:top12.map(x=>x.feature),
+    datasets:[{data:top12.map(x=>x.contribution),backgroundColor:top12.map(x=>x.contribution>=0?'#dc2626':'#16a34a')}]
+  },{h:true});
+
+  mkChart('probChart','bar',{
+    labels:STAGES.map((s,i)=>`Stage ${i}: ${s.name}`),
+    datasets:[{data:d.predicted_distress.probabilities,backgroundColor:STAGES.map(s=>s.color)}]
+  },{scales:{y:{beginAtZero:true,max:1}}});
+
+  el('probCards').innerHTML=d.predicted_distress.probabilities.map((p,i)=>
+    `<div class="col-md-3"><div class="rec-card" style="text-align:center">
+      <div class="stage-chip" style="background:${STAGES[i].bg};color:${STAGES[i].color};justify-content:center">Stage ${i}</div>
+      <h4 class="fw-bold mt-2 mb-0">${pct(p)}</h4>
+      <div class="muted" style="font-size:12px">${STAGES[i].name}</div>
+    </div></div>`
+  ).join('');
+}
+
+function renderRecs(d){
+  const b=(t,arr)=>`<div class="col-lg-4"><div class="rec-card"><h6 class="fw-bold">${t}</h6>${
+    arr?.length?'<ul class="ps-3 mb-0">'+arr.map(x=>`<li class="mb-2">${esc(x)}</li>`).join('')+'</ul>':'<div class="muted">No actions.</div>'
+  }</div></div>`;
+  el('recCards').innerHTML=b('Immediate',d.recs?.immediate)+b('Medium-term',d.recs?.medium_term)+b('Monitoring',d.recs?.monitoring);
+}
+
+function renderWhatIf(d){
+  el('whatIfList').innerHTML=d.whatif?.length
+    ?d.whatif.map(w=>`<div class="what-card d-flex justify-content-between align-items-center">
+        <div><strong>${esc(w.feature)}</strong><div class="muted" style="font-size:12px">Current ${fmt(w.current_value,4)} → target ${fmt(w.target_value,4)}</div></div>
+        <div class="text-end"><strong>${fmt(w.improvement,4)}</strong><div class="muted" style="font-size:12px">risk-score reduction</div><div class="badge-soft mt-1">→ Stage ${w.new_stage}</div></div>
+      </div>`).join('')
+    :'<div class="muted p-3">No what-if scenarios — company is already at the best predicted stage.</div>';
+}
+
+function renderPeers(d){
+  const labels=FEATS.map(f=>f.label);
+  el('peerFeature').innerHTML=labels.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');
+  const draw=()=>{
+    const f=el('peerFeature').value||labels[0];
+    const vals=[0,1,2,3].map(i=>PSX_DATA.stage_medians[String(i)][f]??0);
+    const cur=d.feature_details.find(x=>x.feature===f)?.value??null;
+    mkChart('peerChart','bar',{
+      labels:['Healthy','Profit Reduction','Mild Liquidity','Severe Liquidity'],
+      datasets:[
+        {label:'Stage median',data:vals,backgroundColor:STAGES.map(s=>s.color)},
+        {label:'This company',data:[cur,cur,cur,cur],type:'line',borderColor:'#0f172a',backgroundColor:'#0f172a',pointRadius:5}
+      ]
+    },{legend:true});
+  };
+  el('peerFeature').onchange=draw; draw();
+}
+
+// ── Boot ──
+boot();
+</script>
+</body>
+</html>
