@@ -38,7 +38,7 @@ Data is sourced from the **Financial Statements Analysis of the
 Non-Financial Companies (FSANFC)**, published by the State Bank of
 Pakistan (2023, 2024, 2025). The raw data is not included in this
 repository as it is publicly available directly from the SBP:
-https://www.sbp.org.pk/departments/stats/PSD/index.htm
+https://www.sbp.org.pk/reports/annual/FSANFC/Years.htm
 
 ---
 
